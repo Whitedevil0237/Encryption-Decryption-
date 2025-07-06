@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Encryption & Decryption Tool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>🔐 Encryption & Decryption Tool</h2>
+
+    <div class="section">
+      <h3>Caesar Cipher</h3>
+      <label for="caesarText">Text</label>
+      <textarea id="caesarText" rows="3"></textarea>
+
+      <label for="caesarShift">Shift</label>
+      <input type="number" id="caesarShift" value="3" />
+
+      <button onclick="encryptCaesar()">Encrypt</button>
+      <button onclick="decryptCaesar()">Decrypt</button>
+
+      <label>Result</label>
+      <textarea id="caesarResult" readonly rows="2"></textarea>
+    </div>
+
+    <div class="section">
+      <h3>AES Encryption</h3>
+      <label for="aesText">Text</label>
+      <textarea id="aesText" rows="3"></textarea>
+
+      <label for="aesPassword">Password</label>
+      <input type="password" id="aesPassword" />
+
+      <button onclick="encryptAES()">Encrypt</button>
+      <button onclick="decryptAES()">Decrypt</button>
+
+      <label>Result</label>
+      <textarea id="aesResult" readonly rows="2"></textarea>
+    </div>
+  </div>
+
+  <script>
+    function encryptCaesar() {
+      const text = document.getElementById('caesarText').value;
+      const shift = parseInt(document.getElementById('caesarShift').value);
+      const result = caesarCipher(text, shift);
+      document.getElementById('caesarResult').value = result;
+    }
+
+    function decryptCaesar() {
+      const text = document.getElementById('caesarText').value;
+      const shift = parseInt(document.getElementById('caesarShift').value);
+      const result = caesarCipher(text, -shift);
+      document.getElementById('caesarResult').value = result;
+    }
+
+    function caesarCipher(str, shift) {
+      return str.split('').map(char => {
+        if (/[a-z]/.test(char)) {
+          return String.fromCharCode((char.charCodeAt(0) - 97 + shift + 26) % 26 + 97);
+        } else if (/[A-Z]/.test(char)) {
+          return String.fromCharCode((char.charCodeAt(0) - 65 + shift + 26) % 26 + 65);
+        } else {
+          return char;
+        }
+      }).join('');
+    }
+
+    async function getKeyMaterial(password) {
+      let enc = new TextEncoder();
+      return crypto.subtle.importKey(
+        "raw", enc.encode(password),
+        {"name": "PBKDF2"},
+        false,
+        ["deriveKey"]
+      );
+    }
+
+    async function getAESKey(password) {
+      const salt = new Uint8Array([21, 31, 42, 53, 64, 75, 86, 97]);
+      const keyMaterial = await getKeyMaterial(password);
+      return crypto.subtle.deriveKey(
+        {
+          "name": "PBKDF2",
+          salt: salt,
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { "name": "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptAES() {
+      const text = document.getElementById('aesText').value;
+      const password = document.getElementById('aesPassword').value;
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await getAESKey(password);
+
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        new TextEncoder().encode(text)
+      );
+
+      const result = btoa([...iv, ...new Uint8Array(encrypted)].map(b => String.fromCharCode(b)).join(""));
+      document.getElementById('aesResult').value = result;
+    }
+
+    async function decryptAES() {
+      const data = document.getElementById('aesText').value;
+      const password = document.getElementById('aesPassword').value;
+      try {
+        const raw = atob(data).split('').map(c => c.charCodeAt(0));
+        const iv = new Uint8Array(raw.slice(0, 12));
+        const encrypted = new Uint8Array(raw.slice(12));
+        const key = await getAESKey(password);
+
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: iv },
+          key,
+          encrypted
+        );
+
+        document.getElementById('aesResult').value = new TextDecoder().decode(decrypted);
+      } catch (e) {
+        document.getElementById('aesResult').value = "Decryption failed: Invalid input or password";
+      }
+    }
+  </script>
+</body>
+</html>
