@@ -95,41 +95,50 @@
       );
     }
 
-    async function encryptAES() {
-      const text = document.getElementById('aesText').value;
-      const password = document.getElementById('aesPassword').value;
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await getAESKey(password);
+ async function encryptAES() {
+  const text = document.getElementById('aesText').value;
+  const password = document.getElementById('aesPassword').value;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await getAESKey(password);
 
-      const encrypted = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        key,
-        new TextEncoder().encode(text)
-      );
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    new TextEncoder().encode(text)
+  );
 
-      const result = btoa([...iv, ...new Uint8Array(encrypted)].map(b => String.fromCharCode(b)).join(""));
-      document.getElementById('aesResult').value = result;
-    }
+  // Combine IV + encrypted data and convert to base64
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  const result = btoa(String.fromCharCode(...combined));
 
-    async function decryptAES() {
-      const data = document.getElementById('aesText').value;
-      const password = document.getElementById('aesPassword').value;
-      try {
-        const raw = atob(data).split('').map(c => c.charCodeAt(0));
-        const iv = new Uint8Array(raw.slice(0, 12));
-        const encrypted = new Uint8Array(raw.slice(12));
-        const key = await getAESKey(password);
+  document.getElementById('aesResult').value = result;
+  document.getElementById('aesText').value = ''; // optional: clear input
+}
 
-        const decrypted = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: iv },
-          key,
-          encrypted
-        );
+async function decryptAES() {
+  const data = document.getElementById('aesResult').value; // read from aesResult
+  const password = document.getElementById('aesPassword').value;
 
-        document.getElementById('aesResult').value = new TextDecoder().decode(decrypted);
-      } catch (e) {
-        document.getElementById('aesResult').value = "Decryption failed: Invalid input or password";
-      }
+  try {
+    const raw = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    const iv = raw.slice(0, 12);
+    const encrypted = raw.slice(12);
+    const key = await getAESKey(password);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encrypted
+    );
+
+    document.getElementById('aesText').value = new TextDecoder().decode(decrypted);
+  } catch (e) {
+    document.getElementById('aesText').value = "Decryption failed: Invalid input or password";
+  }
+}
+
     }
   </script>
 </body>
