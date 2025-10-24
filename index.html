@@ -2,206 +2,161 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Encryption & Decryption Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AES-GCM Encryption/Decryption</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f5f6fa;
-      color: #222;
-      padding: 20px;
+      font-family: "Poppins", sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
     .container {
-      max-width: 750px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 1rem;
+      width: 360px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
     h2 {
       text-align: center;
-    }
-    .section {
-      margin: 25px 0;
-      border: 1px solid #ddd;
-      padding: 15px;
-      border-radius: 8px;
+      margin-bottom: 1rem;
     }
     label {
       display: block;
-      margin-top: 10px;
-      font-weight: bold;
+      margin-top: 0.75rem;
     }
-    textarea, input[type="number"], input[type="password"] {
+    input, textarea {
       width: 100%;
-      padding: 8px;
-      margin-top: 6px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      outline: none;
+      margin-top: 0.3rem;
+      background: #334155;
+      color: white;
     }
     button {
+      width: 48%;
+      margin-top: 1rem;
+      padding: 0.6rem;
+      border: none;
+      border-radius: 0.5rem;
       background: #2563eb;
       color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-top: 10px;
-      margin-right: 5px;
       cursor: pointer;
+      transition: 0.3s;
     }
-    button.secondary {
-      background: #6b7280;
+    button:hover {
+      background: #1d4ed8;
+    }
+    .btn-row {
+      display: flex;
+      justify-content: space-between;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🔐 Encryption & Decryption Tool</h2>
+    <h2>AES-GCM Tool</h2>
+    <label>Enter Text:</label>
+    <textarea id="inputText" rows="2" placeholder="Enter text to encrypt or decrypt"></textarea>
 
-    <!-- Caesar Cipher -->
-    <div class="section">
-      <h3>Caesar Cipher</h3>
-      <label>Text</label>
-      <textarea id="caesarText" rows="3"></textarea>
+    <label>Key:</label>
+    <input type="text" id="keyInput" placeholder="Enter secret key" />
 
-      <label>Shift</label>
-      <input type="number" id="caesarShift" value="3" />
+    <label>Result (Base64):</label>
+    <textarea id="resultText" rows="2" readonly></textarea>
 
-      <div>
-        <button onclick="encryptCaesar()">Encrypt</button>
-        <button class="secondary" onclick="decryptCaesar()">Decrypt</button>
-      </div>
-
-      <label>Result</label>
-      <textarea id="caesarResult" readonly rows="2"></textarea>
-    </div>
-
-    <!-- AES Encryption -->
-    <div class="section">
-      <h3>AES-GCM Encryption</h3>
-      <label>Text</label>
-      <textarea id="aesText" rows="3"></textarea>
-
-      <label>Password</label>
-      <input type="password" id="aesPassword" />
-
-      <div>
-        <button onclick="encryptAES()">Encrypt</button>
-        <button class="secondary" onclick="decryptAES()">Decrypt</button>
-      </div>
-
-      <label>Result (Base64)</label>
-      <textarea id="aesResult" readonly rows="2"></textarea>
+    <div class="btn-row">
+      <button onclick="encryptText()">Encrypt</button>
+      <button onclick="decryptText()">Decrypt</button>
     </div>
   </div>
 
   <script>
-    // ---------------- CAESAR CIPHER ----------------
-    function caesarCipher(str, shift) {
-      return str.split('').map(char => {
-        if (/[a-z]/.test(char)) {
-          return String.fromCharCode((char.charCodeAt(0) - 97 + shift + 26) % 26 + 97);
-        } else if (/[A-Z]/.test(char)) {
-          return String.fromCharCode((char.charCodeAt(0) - 65 + shift + 26) % 26 + 65);
-        } else {
-          return char;
-        }
-      }).join('');
-    }
-
-    function encryptCaesar() {
-      const text = document.getElementById("caesarText").value;
-      const shift = parseInt(document.getElementById("caesarShift").value);
-      document.getElementById("caesarResult").value = caesarCipher(text, shift);
-    }
-
-    function decryptCaesar() {
-      const text = document.getElementById("caesarText").value;
-      const shift = parseInt(document.getElementById("caesarShift").value);
-      document.getElementById("caesarResult").value = caesarCipher(text, -shift);
-    }
-
-    // ---------------- AES-GCM ----------------
-    async function getKeyMaterial(password) {
+    async function getKeyFromPassword(password) {
       const enc = new TextEncoder();
-      return crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]);
-    }
-
-    async function getAESKey(password) {
-      const salt = new Uint8Array([11,22,33,44,55,66,77,88]); // fixed salt for demo
-      const keyMaterial = await getKeyMaterial(password);
-      return crypto.subtle.deriveKey(
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveKey"]
+      );
+      const key = await crypto.subtle.deriveKey(
         {
           name: "PBKDF2",
-          salt: salt,
+          salt: new TextEncoder().encode("aes-gcm-salt"),
           iterations: 100000,
-          hash: "SHA-256"
+          hash: "SHA-256",
         },
         keyMaterial,
         { name: "AES-GCM", length: 256 },
-        false,
+        true,
         ["encrypt", "decrypt"]
       );
+      return key;
     }
 
-    function arrayBufferToBase64(buffer) {
-      let binary = '';
-      const bytes = new Uint8Array(buffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
-      return btoa(binary);
+    function bufferToBase64(buf) {
+      return btoa(String.fromCharCode(...new Uint8Array(buf)));
     }
 
-    function base64ToArrayBuffer(base64) {
-      const binary = atob(base64);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-      return bytes.buffer;
+    function base64ToBuffer(base64) {
+      return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     }
 
-    async function encryptAES() {
-      const text = document.getElementById("aesText").value;
-      const password = document.getElementById("aesPassword").value;
-      if (!text || !password) {
-        alert("Enter both text and password!");
-        return;
-      }
+    async function encryptText() {
+      const text = document.getElementById("inputText").value;
+      const password = document.getElementById("keyInput").value;
+      if (!text || !password) return alert("Enter both text and key!");
 
+      const key = await getKeyFromPassword(password);
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await getAESKey(password);
-      const encoded = new TextEncoder().encode(text);
-      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encoded);
+      const enc = new TextEncoder();
+      const encoded = enc.encode(text);
 
-      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        encoded
+      );
+
+      const combined = new Uint8Array(iv.length + ciphertext.byteLength);
       combined.set(iv);
-      combined.set(new Uint8Array(encrypted), iv.length);
+      combined.set(new Uint8Array(ciphertext), iv.length);
 
-      const base64 = arrayBufferToBase64(combined.buffer);
-      document.getElementById("aesResult").value = base64;
+      const base64 = bufferToBase64(combined);
+      document.getElementById("resultText").value = base64;
     }
 
-    async function decryptAES() {
-      const data = document.getElementById("aesResult").value;
-      const password = document.getElementById("aesPassword").value;
-      if (!data || !password) {
-        alert("Enter both ciphertext and password!");
-        return;
-      }
+    async function decryptText() {
+      const base64 = document.getElementById("inputText").value.trim();
+      const password = document.getElementById("keyInput").value;
+      if (!base64 || !password) return alert("Enter both Base64 text and key!");
+
+      const key = await getKeyFromPassword(password);
+      const data = base64ToBuffer(base64);
+      const iv = data.slice(0, 12);
+      const ciphertext = data.slice(12);
 
       try {
-        const bytes = new Uint8Array(base64ToArrayBuffer(data));
-        const iv = bytes.slice(0, 12);
-        const ciphertext = bytes.slice(12);
-        const key = await getAESKey(password);
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          key,
+          ciphertext
+        );
 
-        const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
-        const plain = new TextDecoder().decode(decrypted);
-
-        document.getElementById("aesText").value = plain;
-      } catch (err) {
-        document.getElementById("aesText").value = "Decryption failed: wrong password or data.";
+        const dec = new TextDecoder().decode(decrypted);
+        // show decrypted message in Result field
+        document.getElementById("resultText").value = dec;
+      } catch (e) {
+        document.getElementById("resultText").value = "❌ Decryption failed: Wrong key or data!";
       }
     }
   </script>
